@@ -1,0 +1,43 @@
+---
+# Source: xxx-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myrelease-xxx-service
+  labels:
+    helm.sh/chart: xxx-service-0.1.0
+    app.kubernetes.io/name: xxx-service
+    app.kubernetes.io/instance: myrelease
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xxx-service
+      app.kubernetes.io/instance: myrelease
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: xxx-service-0.1.0
+        app.kubernetes.io/name: xxx-service
+        app.kubernetes.io/instance: myrelease
+        app.kubernetes.io/version: "1.16.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: xxx-service
+          image: ":1.16.0"
+          imagePullPolicy: 
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

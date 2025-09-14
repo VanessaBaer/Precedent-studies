@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "xxx-service.fullname" . }}
+  labels:
+    app: xxx-service
+    app.kubernetes.io/name: xxx-service
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: xxx-service
+      app.kubernetes.io/name: xxx-service
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: xxx-service
+        app.kubernetes.io/name: xxx-service
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # Prometheus (pod annotations approach)
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+
+        # Rollout when Secret changes - expects templates/secret-db.yaml to exist
+        checksum/secret-db: {{ include (print $.Template.BasePath "/secret-db.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: xxx-service
+          image: {{ .Values.image.registry }}/{{ .Values.image.repo }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # DB creds come from a Secret instead of values.yaml
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xxx-service.fullname" . }}-db
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "xxx-service.fullname" . }}-db
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://$(DB_USER):$(DB_PASS)@{{ .Values.db.server }}:{{ .Values.db.port }}/{{ .Values.db.database | default .Release.Namespace }}
+
+            # OpenTelemetry: provide both common and app-specific keys 
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "{{ .Values.otel.endpoint }}"
+            - name: OTEL_SERVICE_NAME
+              value: "{{ .Values.otel.serviceName }}"
+            - name: OTEL__Endpoint
+              value: "{{ .Values.otel.endpoint }}"
+            - name: OTEL__ServiceName
+              value: "{{ .Values.otel.serviceName }}"
+
+          # Probes (added readiness; kept startup + liveness)
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Container hardening & resources
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

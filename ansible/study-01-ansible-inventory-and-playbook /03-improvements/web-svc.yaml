@@ -1,0 +1,73 @@
+---
+- name: Hardened, portable webserver setup
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - vars.yaml
+    # - group_vars/all/vault.yaml  # (optional) if you later move secrets to Vault
+
+  pre_tasks:
+    - name: Determine package and service names for this OS family
+      ansible.builtin.set_fact:
+        web_pkg: "{{ web_package_map[ansible_os_family] | default(omit) }}"
+        web_svc: "{{ web_service_map[ansible_os_family] | default(omit) }}"
+      tags: [always]
+
+    - name: Fail if this OS family is unsupported
+      ansible.builtin.fail:
+        msg: >
+          OS family '{{ ansible_os_family }}' is not supported by this play.
+          Add package/service names for this family to vars.yaml.
+      when: web_pkg is not defined or web_svc is not defined
+      tags: [always]
+
+  tasks:
+    - name: Ensure web package is present
+      ansible.builtin.package:
+        name: "{{ web_pkg }}"
+        state: present
+      tags: [web, packages]
+
+    - name: Ensure web service is enabled and in desired state
+      ansible.builtin.service:
+        name: "{{ web_svc }}"
+        state: "{{ web_state }}"
+        enabled: "{{ web_enabled }}"
+      tags: [web, service]
+
+    # --- Optional firewall open (safe defaults; enable when you have firewall) ---
+    - name: Open HTTP port on firewalld (RHEL-family)  # optional
+      ansible.posix.firewalld:
+        port: "{{ web_port }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: true
+      when:
+        - ansible_os_family == "RedHat"
+        - "'firewalld' in ansible_facts.packages or (ansible_facts.services | default({})) is search('firewalld')"
+      notify: Restart firewalld
+      tags: [optional, firewall]
+
+ #add a template task to manage a simple index.html and notify restart
+    - name: Deploy index.html
+      ansible.builtin.template:
+        src: templates/index.html.j2
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart web service
+      tags: [optional, content]
+
+  handlers:
+    - name: Restart web service
+      ansible.builtin.service:
+        name: "{{ web_svc }}"
+        state: restarted
+
+    - name: Restart firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: restarted

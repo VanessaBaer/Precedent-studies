@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comms-service
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: comms-service
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '8080'
+      labels:
+        app: comms-service
+    spec:
+      containers:
+      - image: {{ .Values.image.registry }}/{{ .Values.image.repo }}:{{ .Chart.AppVersion }}
+        name: comms-service
+        env:
+        - name: DATABASE_URL
+          value: postgres://{{ .Values.db.username }}:{{ .Values.db.password }}@{{ .Values.db.server }}:{{ .Values.db.port }}/{{ .Values.db.database | default .Release.Namespace }}
+        - name: OTEL__Endpoint
+          value: "{{ .Values.otel.endpoint }}"
+        - name: OTEL__ServiceName
+          value: "{{ .Values.otel.serviceName }}"
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          timeoutSeconds: 5
+        resources: {{ .Values.resources | toYaml | nindent 10 }}
+      nodeSelector:
+        kubernetes.io/os: linux

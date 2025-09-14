@@ -1,0 +1,27 @@
+replicaCount: 2
+image:
+  registry: ghcr.io/myorg
+  repo: xxx-service
+db:
+  username: appuser
+  password: change-me # only for local render; use SECRETS in real life
+  server: postgres.example.com
+  port: 5432
+  database: xxx-service
+otel:
+  endpoint: http://otel-collector:4317
+  serviceName: xxx-service
+resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+      
+autoscaling:
+  enabled: false
+
+serviceAccount:
+  create: false
+  name: default      

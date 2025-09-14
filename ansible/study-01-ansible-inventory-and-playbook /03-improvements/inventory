@@ -1,0 +1,3 @@
+# Example inventory. Rename to `inventory` when you’re ready to use.
+[webservers]
+web01 ansible_host=192.168.33.10 ansible_user=vagrant ansible_ssh_private_key_file=private_key

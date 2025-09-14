@@ -1,0 +1,26 @@
+# Centralised variables for portability and clarity.
+
+# Map OS family -> package name
+web_package_map:
+  RedHat: httpd
+  OracleLinux: httpd
+  Amazon: httpd
+  Debian: apache2
+  Ubuntu: apache2
+  # Add others as needed, e.g.:
+
+
+# Map OS family -> service name
+web_service_map:
+  RedHat: httpd
+  OracleLinux: httpd
+  Amazon: httpd
+  Debian: apache2
+  Ubuntu: apache2
+
+# Desired runtime state
+web_state: started
+web_enabled: true
+
+# Network
+web_port: 80
