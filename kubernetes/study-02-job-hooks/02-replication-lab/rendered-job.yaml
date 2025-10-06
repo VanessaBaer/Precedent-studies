@@ -1,0 +1,59 @@
+{{- if .Values.dbJob.enabled -}} 
+apiVersion: batch/v1 
+kind: Job 
+metadata: 
+  name: {{ .Release.Name }}-postgres-create 
+  annotations: 
+      helm.sh/hook: pre-install 
+      helm.sh/hook-delete-policy: before-hook-creation 
+      helm.sh/hook-weight: "0" 
+spec: 
+  template: 
+    spec: 
+      containers: 
+      - name: postgres-create 
+        image: {{ .Values.dbJob.image.registry }}/{{ .Values.dbJob.image.repo }} 
+        imagePullPolicy: Always 
+        env: 
+        - name: CREATE 
+          value: "true" 
+        {{- range $key, $value := .Values.dbJob.env }} 
+        - name: {{ $key }} 
+          value: {{ tpl ($value | quote) $ }}
+        {{- end }} 
+        envFrom: 
+        - secretRef:
+            name: wxxxxx-principal
+        restartPolicy: OnFailure
+        nodeSelector: 
+          kubernetes.io/os: linux 
+--- 
+apiVersion: batch/v1 
+kind: Job 
+metadata: 
+name: {{ .Release.Name }}-postgres-delete 
+annotations: 
+  helm.sh/hook: post-delete 
+  helm.sh/hook-delete-policy: before-hook-creation 
+  helm.sh/hook-weight: "0" 
+spec: 
+  template: 
+    spec: 
+      containers: 
+      - name: postgres-delete 
+        image: {{ .Values.dbJob.image.registry }}/{{ .Values.dbJob.image.repo }} 
+        imagePullPolicy: Always 
+        env: 
+        - name: DELETE 
+          value: "true" 
+        {{- range $key, $value := .Values.dbJob.env }} 
+        - name: {{ $key }} 
+          value: {{ tpl ($value | quote) $ }}
+        {{- end }}
+        envFrom: 
+        - secretRef: 
+            name: wxxxxx-principal 
+      restartPolicy: OnFailure 
+      nodeSelector: 
+        kubernetes.io/os: linux 
+{{- end }}

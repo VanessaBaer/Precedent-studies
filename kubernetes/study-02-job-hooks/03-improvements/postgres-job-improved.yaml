@@ -1,0 +1,38 @@
+{{- if .Values.dbJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-postgres-create
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      containers:
+      - name: postgres-create
+        image: {{ .Values.dbJob.image.registry }}/{{ .Values.dbJob.image.repo }}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        env:
+        - name: CREATE
+          value: "true"
+        {{- range $key, $value := .Values.dbJob.env }}
+        - name: {{ $key }}
+          value: {{ tpl ($value | quote) $ }}
+        {{- end }}
+        envFrom:
+        - secretRef:
+            name: wintrix-azure-service-principal
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- end }}
